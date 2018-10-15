@@ -15,7 +15,7 @@ from PIL import Image
 img_to_tensor = transforms.ToTensor()
 
 def make_model():
-    resmodel=models.resnet34(pretrained=True)
+    resmodel=models.resnet152(pretrained=True)
     resmodel.cuda()
     return resmodel
 
@@ -55,17 +55,17 @@ def extract_feature(resmodel,imgpath):
     
 if __name__=="__main__":
     model=make_model()
-    imgpath='./cat.jpg'
+    imgpath='cat.jpg'
     print (inference(model,imgpath))
     print (len(extract_feature(model, imgpath)))
 
     model=make_model()
-    imgpath='./cat2.jpg'
+    imgpath='cat2.jpg'
     print (inference(model,imgpath))
     print (len(extract_feature(model, imgpath)))
 
     model=make_model()
-    imgpath='./dog.jpeg'
+    imgpath='dog.jpeg'
     print (inference(model,imgpath))
     print (len(extract_feature(model, imgpath)))
 
