@@ -34,7 +34,7 @@ class CxrDataset(Dataset):
         img_name = os.path.join(self.root_dir,
                                 self.data.iloc[idx, 0])
         image = io.imread(img_name)
-        finding = self.data.iloc[:,1]
+        finding = self.data.iloc[:,1].split('|')
         follow_up_num = self.data.iloc[:,2]
         patient_id = self.data.iloc[:,3]
         patient_age = self.data.iloc[:,4]
@@ -42,7 +42,7 @@ class CxrDataset(Dataset):
         view_position = self.data.iloc[:,6]
         img_size = self.data.iloc[:,7:9].as_matrix()
         img_pixel_spacing = self.data.iloc[:,9:].as_matrix()
-        sample = {'image': image, 'finding': finding,, 'follow_up_num': follow_up_num, 
+        sample = {'image': image, 'finding': finding, 'follow_up_num': follow_up_num, 
         'patient_id': patient_id, 'patient_age': patient_age, 'patient_gender': patient_gender, 
         'view_position': view_position, 'img_size': img_size, 'img_pixel_spacing': img_pixel_spacing}
 
@@ -65,7 +65,7 @@ class Rescale(object):
         self.output_size = output_size
 
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image = sample['image']
 
         h, w = image.shape[:2]
         if isinstance(self.output_size, int):
@@ -78,13 +78,10 @@ class Rescale(object):
 
         new_h, new_w = int(new_h), int(new_w)
 
-        img = transform.resize(image, (new_h, new_w))
+        image = transform.resize(image, (new_h, new_w))
 
-        # h and w are swapped for landmarks because for images,
-        # x and y axes are axis 1 and 0 respectively
-        landmarks = landmarks * [new_w / w, new_h / h]
-
-        return {'image': img, 'landmarks': landmarks}
+        sample['image'] = image
+        return sample
 
 
 class RandomCrop(object):
@@ -104,7 +101,7 @@ class RandomCrop(object):
             self.output_size = output_size
 
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image = sample['image']
 
         h, w = image.shape[:2]
         new_h, new_w = self.output_size
@@ -115,20 +112,19 @@ class RandomCrop(object):
         image = image[top: top + new_h,
                       left: left + new_w]
 
-        landmarks = landmarks - [left, top]
-
-        return {'image': image, 'landmarks': landmarks}
+        sample['image'] = image
+        return sample
 
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
     def __call__(self, sample):
-        image, landmarks = sample['image'], sample['landmarks']
+        image = sample['image']
 
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
         image = image.transpose((2, 0, 1))
-        return {'image': torch.from_numpy(image),
-                'landmarks': torch.from_numpy(landmarks)}
+        sample['image'] = image
+        return sample
