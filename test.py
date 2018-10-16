@@ -16,7 +16,8 @@ img_to_tensor = transforms.ToTensor()
 
 def make_model():
     resmodel=models.resnet152(pretrained=True)
-    resmodel.cuda()
+    if torch.cuda.is_available():
+        resmodel.cuda()
     return resmodel
 
 
@@ -28,7 +29,8 @@ def inference(resmodel,imgpath):
     tensor=img_to_tensor(img)
     
     tensor=tensor.resize_(1,3,224,224)
-    tensor=tensor.cuda()
+    if torch.cuda.is_available():
+        tensor=tensor.cuda()
             
     result=resmodel(Variable(tensor))
     result_npy=result.data.cpu().numpy()
@@ -46,7 +48,8 @@ def extract_feature(resmodel,imgpath):
     tensor=img_to_tensor(img)
     
     tensor=tensor.resize_(1,3,224,224)
-    tensor=tensor.cuda()
+    if torch.cuda.is_available():
+        tensor=tensor.cuda()
             
     result=resmodel(Variable(tensor))
     result_npy=result.data.cpu().numpy()
@@ -55,19 +58,10 @@ def extract_feature(resmodel,imgpath):
     
 if __name__=="__main__":
     model=make_model()
-    imgpath='cat.jpg'
+    imgpath='00001335_004.png'
     print (inference(model,imgpath))
-    print (len(extract_feature(model, imgpath)))
+    print ((extract_feature(model, imgpath)))
 
-    model=make_model()
-    imgpath='cat2.jpg'
-    print (inference(model,imgpath))
-    print (len(extract_feature(model, imgpath)))
-
-    model=make_model()
-    imgpath='dog.jpeg'
-    print (inference(model,imgpath))
-    print (len(extract_feature(model, imgpath)))
 
     
 
