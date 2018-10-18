@@ -15,7 +15,7 @@ from PIL import Image
 img_to_tensor = transforms.ToTensor()
 
 def make_model():
-    resmodel=models.resnet152(pretrained=True)
+    resmodel=models.resnet50(pretrained=True)
     if torch.cuda.is_available():
         resmodel.cuda()
     return resmodel
@@ -27,6 +27,8 @@ def inference(resmodel,imgpath):
     img=Image.open(imgpath)
     img=img.resize((224,224))
     tensor=img_to_tensor(img)
+    if tensor.size() == torch.Size([1,224,224]):
+        tensor=tensor.expand(1,3,224,224)
     
     tensor=tensor.resize_(1,3,224,224)
     if torch.cuda.is_available():
@@ -46,6 +48,8 @@ def extract_feature(resmodel,imgpath):
     img=Image.open(imgpath)
     img=img.resize((224,224))
     tensor=img_to_tensor(img)
+    if tensor.size() == torch.Size([1,224,224]):
+        tensor=tensor.expand(1,3,224,224)
     
     tensor=tensor.resize_(1,3,224,224)
     if torch.cuda.is_available():
@@ -58,10 +62,12 @@ def extract_feature(resmodel,imgpath):
     
 if __name__=="__main__":
     model=make_model()
-    imgpath='00001335_004.png'
-    print (inference(model,imgpath))
-    print ((extract_feature(model, imgpath)))
-
+    for file in os.listdir("./test_images"):
+        imgpath = os.path.join("./test_images",file)
+        print(file)
+        print ("class:{}".format(inference(model,imgpath)))
+        print ("features:{}".format(extract_feature(model, imgpath)))
+        print("======================================")
 
     
 
