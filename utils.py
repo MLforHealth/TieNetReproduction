@@ -10,6 +10,8 @@ from random import seed, choice, sample
 import pydicom
 import json
 import re
+import nltk
+nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 
 class MIMIC_RE(object):
