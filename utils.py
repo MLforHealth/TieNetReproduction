@@ -8,26 +8,101 @@ from tqdm import tqdm
 from collections import Counter
 from random import seed, choice, sample
 import dicom
+import json
+import re
+from nltk.tokenize import word_tokenize
 
-def iterate_csv(base_path, dataframe, word_freq):
-    image_paths = []
-    image_reports = []
-    for idx, row in dataframe.iterrows():
-        reports = []
-        report_path = os.path.join(base_path,'reports',row['rad_id'] + '.txt')
-        with open(report_path, 'r') as fp:
-            report_raw = fp.readlines()
+class MIMIC_RE(object):
+    def __init__(self):
+        self._cached = {}
+
+    def get(self, pattern, flags=0):
+        key = hash((pattern, flags))
+        if key not in self._cached:
+            self._cached[key] = re.compile(pattern, flags=flags)
+
+        return self._cached[key]
+
+    def sub(self, pattern, repl, string, flags=0):
+        return self.get(pattern, flags=flags).sub(repl, string)
+
+    def rm(self, pattern, string, flags=0):
+        return self.sub(pattern, '', string)
+
+    def get_id(self, tag, flags=0):
+        return self.get(r'\[\*\*.*{:s}.*?\*\*\]'.format(tag), flags=flags)
+
+    def sub_id(self, tag, repl, string, flags=0):
+        return self.get_id(tag).sub(repl, string)
+
+
+def parse_report(path):
+    mimic_re = MIMIC_RE()
+    with open(path,'r') as f:
+        report = f.read()
+    report = report.lower()
+    report = mimic_re.sub_id(r'(?:location|address|university|country|state|unit number)', 'LOC', report)
+    report = mimic_re.sub_id(r'(?:year|month|day|date)', 'DATE', report)
+    report = mimic_re.sub_id(r'(?:hospital)', 'HOSPITAL', report)
+    report = mimic_re.sub_id(r'(?:identifier|serial number|medical record number|social security number|md number)', 'ID', report)
+    report = mimic_re.sub_id(r'(?:age)', 'AGE', report)
+    report = mimic_re.sub_id(r'(?:phone|pager number|contact info|provider number)', 'PHONE', report)
+    report = mimic_re.sub_id(r'(?:name|initial|dictator|attending)', 'NAME', report)
+    report = mimic_re.sub_id(r'(?:company)', 'COMPANY', report)
+    report = mimic_re.sub_id(r'(?:clip number)', 'CLIP_NUM', report)
+
+    report = mimic_re.sub((
+        r'\[\*\*(?:'
+            r'\d{4}'  # 1970
+            r'|\d{0,2}[/-]\d{0,2}'  # 01-01
+            r'|\d{0,2}[/-]\d{4}'  # 01-1970
+            r'|\d{0,2}[/-]\d{0,2}[/-]\d{4}'  # 01-01-1970
+            r'|\d{4}[/-]\d{0,2}[/-]\d{0,2}'  # 1970-01-01
+        r')\*\*\]'
+    ), 'DATE', report)
+    report = mimic_re.sub(r'\[\*\*.*\*\*\]', 'OTHER', report)
+    report = mimic_re.sub(r'(?:\d{1,2}:\d{2})', 'TIME', report)
+
+    report = mimic_re.rm(r'_{2,}', report, flags=re.MULTILINE)
+    report = mimic_re.rm(r'the study and the report were reviewed by the staff radiologist.', report)
+
+
+    matches = list(mimic_re.get(r'^(?P<title>[ \w()]+):', flags=re.MULTILINE).finditer(report))
+    parsed_report = {}
+    for (match, next_match) in zip(matches, matches[1:] + [None]):
+        start = match.end()
+        end = next_match and next_match.start()
+
+        title = match.group('title')
+        title = title.strip()
+
+        paragraph = report[start:end]
+        paragraph = mimic_re.sub(r'\s{2,}', ' ', paragraph)
+        paragraph = paragraph.strip()
         
-        # TODO: Need to process raw report.
-        reports = report_raw
+        parsed_report[title] = paragraph
 
-        if len(reports) == 0:
+    return parsed_report
+
+def iterate_csv(base_path, dataframe, word_freq, max_len):
+    image_paths = []
+    image_report = []
+    for idx, row in dataframe.iterrows():
+        report = []
+        report_path = os.path.join(base_path,'reports',str(row['rad_id']) + '.txt')
+        
+        parsed_report = parse_report(report_path)
+        tokens = word_tokenize(parsed_report['findings'])
+        word_freq.update(tokens)
+        if len(tokens) <= max_len:
+            report.append(tokens)
+        if len(report) == 0:
             continue
 
-        path = os.path.join(base_path, 'images', row[''])
+        path = os.path.join(base_path, 'images', str(row['dicom_id']) + '.dcm')
         image_paths.append(path)
-        image_reports.append(reports)
-    return image_paths, image_reports
+        image_report.append(report)
+    return image_paths, image_report
 
 def create_input_files(dataset, base_path, reports_per_image, min_word_freq, output_folder,
                        max_len=100):
@@ -59,9 +134,9 @@ def create_input_files(dataset, base_path, reports_per_image, min_word_freq, out
     # Read image paths and reports for each image
     word_freq = Counter()
 
-    train_image_paths, train_image_reports = iterate_csv(base_path,train,word_freq)
-    val_image_paths, val_image_reports = iterate_csv(base_path,val,word_freq)
-    test_image_paths, test_image_reports = iterate_csv(base_path,test,word_freq)
+    train_image_paths, train_image_reports = iterate_csv(base_path,train,word_freq,max_len)
+    val_image_paths, val_image_reports = iterate_csv(base_path,val,word_freq,max_len)
+    test_image_paths, test_image_reports = iterate_csv(base_path,test,word_freq,max_len)
 
     # Sanity check
     assert len(train_image_paths) == len(train_image_reports)
@@ -113,7 +188,8 @@ def create_input_files(dataset, base_path, reports_per_image, min_word_freq, out
                 assert len(reports) == reports_per_image
 
                 # Read images
-                img = imread(impaths[i])
+                plan = dicom.read_file(impaths[i], stop_before_pixels=False)
+                img = plan.pixel_array
                 if len(img.shape) == 2:
                     img = img[:, :, np.newaxis]
                     img = np.concatenate([img, img, img], axis=2)
