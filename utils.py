@@ -7,7 +7,7 @@ from scipy.misc import imread, imresize
 from tqdm import tqdm
 from collections import Counter
 from random import seed, choice, sample
-import dicom
+import pydicom
 import json
 import re
 from nltk.tokenize import word_tokenize
