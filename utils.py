@@ -92,17 +92,17 @@ def iterate_csv(base_path, dataframe, word_freq, max_len):
         report_path = os.path.join(base_path,'reports',str(row['rad_id']) + '.txt')
         
         parsed_report = parse_report(report_path)
-        print(parsed_report)
-        tokens = word_tokenize(parsed_report['findings'])
-        word_freq.update(tokens)
-        if len(tokens) <= max_len:
-            report.append(tokens)
-        if len(report) == 0:
-            continue
+        if 'findings' in parsed_report:
+            tokens = word_tokenize(parsed_report['findings'])
+            word_freq.update(tokens)
+            if len(tokens) <= max_len:
+                report.append(tokens)
+            if len(report) == 0:
+                continue
 
-        path = os.path.join(base_path, 'images', str(row['dicom_id']) + '.dcm')
-        image_paths.append(path)
-        image_report.append(report)
+            path = os.path.join(base_path, 'images', str(row['dicom_id']) + '.dcm')
+            image_paths.append(path)
+            image_report.append(report)
     return image_paths, image_report
 
 def create_input_files(dataset, base_path, reports_per_image, min_word_freq, output_folder,
