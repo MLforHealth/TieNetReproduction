@@ -90,9 +90,9 @@ def iterate_csv(base_path, dataframe, word_freq, max_len):
     for idx, row in dataframe.iterrows():
         report = []
         report_path = os.path.join(base_path,'reports',str(row['rad_id']) + '.txt')
-        print(report_path)
         
         parsed_report = parse_report(report_path)
+        print(parsed_report)
         tokens = word_tokenize(parsed_report['findings'])
         word_freq.update(tokens)
         if len(tokens) <= max_len:
