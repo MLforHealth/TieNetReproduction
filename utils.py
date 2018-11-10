@@ -89,8 +89,10 @@ def parse_report(path):
 def iterate_csv(base_path, dataframe, word_freq, max_len):
     image_paths = []
     image_report = []
+    image_files = os.listdir(os.path.join(base_path,'images'))
+    report_files = os.listdir(os.path.join(base_path,'reports'))
     for idx, row in dataframe.iterrows():
-        if (str(row['dicom_id']) + '.dcm') in os.listdir(os.path.join(base_path,'images')) and (str(row['rad_id']) + '.txt') in os.listdir(os.path.join(base_path,'reports')):
+        if (str(row['dicom_id']) + '.dcm') in image_files and (str(row['rad_id']) + '.txt') in report_files:
             report = []
             report_path = os.path.join(base_path,'reports',str(row['rad_id']) + '.txt')
             path = os.path.join(base_path, 'images', str(row['dicom_id']) + '.dcm')
@@ -113,8 +115,8 @@ def create_input_files(dataset, base_path, reports_per_image, min_word_freq, out
     """
     Creates input files for training, validation, and test data.
 
-    :param dataset: name of dataset, one of 'coco', 'flickr8k', 'flickr30k'
-    :param mimic_csv_path: path of Karpathy JSON file with splits and reports
+    :param dataset: name of dataset
+    :param mimic_csv_path: path of mimic-cxr-map
     :param image_folder: folder with downloaded images
     :param reports_per_image: number of reports to sample per image
     :param min_word_freq: words occuring less frequently than this threshold are binned as <unk>s
