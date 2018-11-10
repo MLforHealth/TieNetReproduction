@@ -192,9 +192,8 @@ def create_input_files(dataset, base_path, reports_per_image, min_word_freq, out
                 assert len(reports) == reports_per_image
 
                 # Read images
-                filename = get_testdata_files(impaths[i])
-                ds = pydicom.dcmread(filename)
-                img = ds.pixel_array
+                plan = dicom.read_file(impaths[i],stop_before_pixels=False)
+                img = plan.pixel_array
                 if len(img.shape) == 2:
                     img = img[:, :, np.newaxis]
                     img = np.concatenate([img, img, img], axis=2)
