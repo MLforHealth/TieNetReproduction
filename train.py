@@ -45,6 +45,10 @@ def main():
 
     global best_bleu4, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map
 
+    # Set gpu
+    torch.cuda.set_device(2)
+    print(torch.cuda.current_device())
+
     # Read word map
     word_map_file = os.path.join(data_folder, 'WORDMAP_' + data_name + '.json')
     with open(word_map_file, 'r') as j:
@@ -94,7 +98,7 @@ def main():
         batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(
         CaptionDataset(data_folder, data_name, 'VAL', transform=transforms.Compose([normalize])),
-        batch_size=batch_size//2, shuffle=True, num_workers=workers, pin_memory=True)
+        batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
 
     # Epochs
     for epoch in range(start_epoch, epochs):
