@@ -11,7 +11,7 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 
 # Data parameters
-data_folder = '../data'  # folder with data files saved by create_input_files.py
+data_folder = '/crimea/liuguanx/mimic-output/'  # folder with data files saved by create_input_files.py
 data_name = 'mimiccxr_1_cap_per_img_5_min_word_freq'  # base name shared by data files
 
 # Model parameters
@@ -44,6 +44,10 @@ def main():
     """
 
     global best_bleu4, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map
+
+    # Set gpu
+    torch.cuda.set_device(2)
+    print(torch.cuda.current_device())
 
     # Read word map
     word_map_file = os.path.join(data_folder, 'WORDMAP_' + data_name + '.json')
