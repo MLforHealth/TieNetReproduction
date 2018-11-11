@@ -185,8 +185,7 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
 
                 # Read images
                 plan = dicom.read_file(impaths[i],stop_before_pixels=False)
-                image = plan.pixel_array
-                img = cv2.convertScaleAbs(image,alpha=(255.0/65535.0))
+                img = np.uint8(plan.pixel_array/plan.pixel_array.max()*255)
                 if len(img.shape) == 2:
                     img = img[:, :, np.newaxis]
                     img = np.concatenate([img, img, img], axis=2)
