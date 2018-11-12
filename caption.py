@@ -119,6 +119,7 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
 
         # Set aside complete sequences
         if len(complete_inds) > 0:
+            print('something')
             complete_seqs.extend(seqs[complete_inds].tolist())
             complete_seqs_alpha.extend(seqs_alpha[complete_inds].tolist())
             complete_seqs_scores.extend(top_k_scores[complete_inds])
@@ -197,7 +198,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load model
-    checkpoint = torch.load(args.model)
+    checkpoint = torch.load(args.model,map_location={'cuda:2': 'cuda:0'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
