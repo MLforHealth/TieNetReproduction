@@ -35,10 +35,9 @@ alpha_c = 1.  # regularization parameter for 'doubly stochastic attention', as i
 best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 10  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
-checkpoint = './BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
 
 
-def main():
+def main(checkpoint):
     """
     Training and validation.
     """
@@ -48,7 +47,10 @@ def main():
     # Set gpu
     torch.cuda.set_device(2)
     print(torch.cuda.current_device())
-
+    if checkpoint:
+        checkpoint = './BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
+    else:
+        checkpoint = None
     # Read word map
     word_map_file = os.path.join(data_folder, 'WORDMAP_' + data_name + '.json')
     with open(word_map_file, 'r') as j:
@@ -330,4 +332,9 @@ def validate(val_loader, encoder, decoder, criterion):
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Show, Attend, and Tell - Tutorial - Generate Caption')
+    parser.add_argument('--checkpoint', '-c', help='checkpoint')
+    args = parser.parse_args()
+
+    main(args.checkpoint)
+
