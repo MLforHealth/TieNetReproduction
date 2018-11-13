@@ -42,7 +42,7 @@ def main(checkpoint):
     Training and validation.
     """
 
-    global best_bleu4, epochs_since_improvement, checkpoint, start_epoch, fine_tune_encoder, data_name, word_map
+    global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
 
     # Set gpu
     torch.cuda.set_device(2)
