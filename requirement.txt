@@ -1,1 +1,3 @@
 pydicom==0.9.9
+scikit-image
+matplotlib
