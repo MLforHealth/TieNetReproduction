@@ -1,3 +1,4 @@
 *.pyc
 /cxr/images
 *.tar
+nohup.out
