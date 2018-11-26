@@ -14,7 +14,9 @@ import json
 import re
 import nltk
 nltk.download('punkt')
+nltk.download('stopwords')
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 
 class MIMIC_RE(object):
     def __init__(self):
@@ -92,6 +94,15 @@ def iterate_csv(base_path, dataframe, word_freq, max_len):
     image_report = []
     image_files = os.listdir(os.path.join(base_path,'images'))
     report_files = os.listdir(os.path.join(base_path,'reports'))
+    stop_words = stopwords.words('english')
+    my_new_stop_words = ['the','and','to','of','was','with','a','on','in','for','name',
+                 'is','patient','s','he','at','as','or','one','she','his','her','am',
+                 'were','you','pt','pm','by','be','had','your','this','date',
+                'from','there','an','that','p','are','have','has','h','but','o',
+                'namepattern','which','every','also','should','if','it','been','who','during', 'x']
+    stop_words.extend(my_new_stop_words)
+    stop_words = set(stop_words)
+
     for idx, row in dataframe.iterrows():
         if (str(row['dicom_id']) + '.dcm') in image_files and (str(row['rad_id']) + '.txt') in report_files:
             report = []
@@ -101,9 +112,10 @@ def iterate_csv(base_path, dataframe, word_freq, max_len):
             parsed_report = parse_report(report_path)
             if 'findings' in parsed_report:
                 tokens = word_tokenize(parsed_report['findings'])
-                word_freq.update(tokens)
-                if len(tokens) <= max_len:
-                    report.append(tokens)
+                filtered_tokens = [w for w in tokens if not w in stop_words]
+                word_freq.update(filtered_tokens)
+                if len(filtered_tokens) <= max_len:
+                    report.append(filtered_tokens)
                 if len(report) == 0:
                     continue
 
