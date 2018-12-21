@@ -89,7 +89,7 @@ def parse_report(path):
 
     return parsed_report
 
-def iterate_csv(base_path, dataframe, word_freq, max_len):
+def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
     image_paths = []
     image_report = []
     image_files = os.listdir(os.path.join(base_path,'images'))
@@ -112,7 +112,10 @@ def iterate_csv(base_path, dataframe, word_freq, max_len):
             parsed_report = parse_report(report_path)
             if 'findings' in parsed_report:
                 tokens = word_tokenize(parsed_report['findings'])
-                filtered_tokens = [w for w in tokens if not w in stop_words]
+                if stopword:
+                    filtered_tokens = [w for w in tokens if not w in stop_words]
+                else:
+                    filtered_tokens = tokens
                 word_freq.update(filtered_tokens)
                 if len(filtered_tokens) <= max_len:
                     report.append(filtered_tokens)

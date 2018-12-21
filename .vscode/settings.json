@@ -1,3 +1,3 @@
 {
-    "python.pythonPath": "/home/guanxiong/.conda/envs/mimic/bin/python"
+    "python.pythonPath": "/anaconda3/envs/torch/bin/python"
 }
