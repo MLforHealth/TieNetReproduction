@@ -9,6 +9,7 @@ import skimage.transform
 import argparse
 from scipy.misc import imread, imresize
 from PIL import Image
+import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -201,10 +202,16 @@ if __name__ == '__main__':
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
-    # Encode, decode with attention and beam search
-    seq, alphas = caption_image_beam_search(encoder, decoder, args.img, word_map, 5)
-    alphas = torch.FloatTensor(alphas)
 
-
-    words = [rev_word_map[ind] for ind in seq]
-    # Visualize caption and attention of best sequence
+    test_data = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/test.csv')
+    text = []
+    for idx, row in test_data.iterrows():
+        img = imread('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
+        # Encode, decode with attention and beam search
+        seq, alphas = caption_image_beam_search(encoder, decoder, img, word_map, 5)
+        alphas = torch.FloatTensor(alphas)
+        words = [rev_word_map[ind] for ind in seq]
+        text.append(' '.join(words))
+    test_data['text'] = text
+    gen_reports = test_data[['rad_id', 'text']]
+    gen_reports.to_csv('/crimea/liuguanx/gen-reports.tsv',sep='\t')
