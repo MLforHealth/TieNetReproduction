@@ -92,7 +92,7 @@ def parse_report(path):
 def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
     image_paths = []
     image_report = []
-    image_files = os.listdir(os.path.join(base_path,'images'))
+    image_files = os.listdir('/data/medg/misc/interpretable-report-gen/cache/images/')
     report_files = os.listdir(os.path.join(base_path,'reports'))
     stop_words = stopwords.words('english')
     my_new_stop_words = ['the','and','to','of','was','with','a','on','in','for','name',
@@ -104,10 +104,10 @@ def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
     stop_words = set(stop_words)
 
     for idx, row in dataframe.iterrows():
-        if (str(row['dicom_id']) + '.dcm') in image_files and (str(row['rad_id']) + '.txt') in report_files:
+        if (str(row['dicom_id']) + '.png') in image_files and (str(row['rad_id']) + '.txt') in report_files:
             report = []
             report_path = os.path.join(base_path,'reports',str(row['rad_id']) + '.txt')
-            path = os.path.join(base_path, 'images', str(row['dicom_id']) + '.dcm')
+            path = os.path.join('/data/medg/misc/interpretable-report-gen/cache/images', str(row['dicom_id']) + '.png')
 
             parsed_report = parse_report(report_path)
             if 'findings' in parsed_report:
@@ -198,8 +198,7 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
                 assert len(captions) == captions_per_image
 
                 # Read images
-                plan = dicom.read_file(impaths[i],stop_before_pixels=False)
-                img = np.uint8(plan.pixel_array/plan.pixel_array.max()*255)
+                img = imread(impaths[i])
                 if len(img.shape) == 2:
                     img = img[:, :, np.newaxis]
                     img = np.concatenate([img, img, img], axis=2)
