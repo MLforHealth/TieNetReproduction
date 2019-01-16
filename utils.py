@@ -136,14 +136,9 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
     data = data.loc[data['dicom_is_available'],:]
     
     # Split data into three set
-    data['random'] = np.random.uniform(0.0,1.0,len(data))
-    train = data[data['random'] < 0.7]
-    other = data[data['random'] >= 0.7]
-    val = other[other['random'] < 0.9]
-    test = other[other['random'] >= 0.9]
-    train.to_csv('/crimea/liuguanx/mimic-output/train.csv')
-    val.to_csv('/crimea/liuguanx/mimic-output/val.csv')
-    test.to_csv('/crimea/liuguanx/mimic-output/test.csv')
+    train = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/train.csv')
+    val = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/val.csv')
+    test = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/test.csv')
 
 
     # Read image paths and reports for each image
