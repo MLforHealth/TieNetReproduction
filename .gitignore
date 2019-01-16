@@ -2,3 +2,4 @@
 /cxr/images
 *.tar
 nohup.out
+.vscode
