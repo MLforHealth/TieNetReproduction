@@ -1,1 +1,1 @@
-python caption.py --img='/home/guanxiong/Desktop/123.png' --model='/home/guanxiong/Desktop/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar' --word_map='/home/guanxiong/Desktop/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json' --beam_size=5
+python caption.py --img='/Users/guanxiongliu/Desktop/123.png' --model='/Users/guanxiongliu/Desktop/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar' --word_map='/Users/guanxiongliu/Desktop/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json' 

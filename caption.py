@@ -197,7 +197,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load model
-    checkpoint = torch.load(args.model,map_location={'cuda:2': 'cpu'})
+    checkpoint = torch.load(args.model,map_location={'cuda:1': 'cpu'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
