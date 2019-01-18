@@ -6,5 +6,5 @@ if __name__ == '__main__':
                        base_path='/crimea/mimic-cxr/',
                        captions_per_image=1,
                        min_word_freq=5,
-                       output_folder='/crimea/liuguanx/mimic-output/',
+                       output_folder='/crimea/liuguanx/mimic-output2/',
                        max_len=100)

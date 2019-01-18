@@ -136,9 +136,9 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
     data = data.loc[data['dicom_is_available'],:]
     
     # Split data into three set
-    train = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/train.csv')
-    val = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/val.csv')
-    test = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/test.csv')
+    train = pd.read_csv('/crimea/liuguanx/dataset/train.csv')
+    val = pd.read_csv('/crimea/liuguanx/dataset/val.csv')
+    test = pd.read_csv('/crimea/liuguanx/dataset/test.csv')
 
 
     # Read image paths and reports for each image
