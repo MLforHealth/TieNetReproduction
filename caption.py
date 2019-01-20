@@ -212,7 +212,9 @@ if __name__ == '__main__':
         seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
         alphas = torch.FloatTensor(alphas)
         words = [rev_word_map[ind] for ind in seq]
-        text.append(' '.join(words))
+        gen_text = ' '.join(words)
+        print(gen_text)
+        text.append(gen_text)
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
     gen_reports.to_csv('/crimea/liuguanx/gen-reports.tsv',sep='\t')
