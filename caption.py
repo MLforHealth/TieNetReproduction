@@ -198,7 +198,7 @@ if __name__ == '__main__':
     encoder.eval()
 
     # Load word map (word2ix)
-    with open('/crimea/liuguanx/mimic-output/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
+    with open('/crimea/liuguanx/mimic-output2/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
