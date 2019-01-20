@@ -207,9 +207,9 @@ if __name__ == '__main__':
     test_data = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/test.csv')
     text = []
     for idx, row in test_data.iterrows():
-        img = imread('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
+        img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
         # Encode, decode with attention and beam search
-        seq, alphas = caption_image_beam_search(encoder, decoder, img, word_map, 5)
+        seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
         alphas = torch.FloatTensor(alphas)
         words = [rev_word_map[ind] for ind in seq]
         text.append(' '.join(words))
