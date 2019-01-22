@@ -11,7 +11,7 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import argparse
 # Data parameters
-data_folder = '/crimea/liuguanx/mimic-output2/'  # folder with data files saved by create_input_files.py
+data_folder = '/data/medg/misc/liuguanx/mimic-output2/'  # folder with data files saved by create_input_files.py
 data_name = 'mimiccxr_1_cap_per_img_5_min_word_freq'  # base name shared by data files
 
 # Model parameters
@@ -45,7 +45,7 @@ def main(checkpoint):
     global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
 
     # Set gpu
-    torch.cuda.set_device(3)
+    torch.cuda.set_device(0)
     print(torch.cuda.current_device())
     if checkpoint:
         checkpoint = './BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
