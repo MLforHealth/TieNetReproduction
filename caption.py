@@ -192,7 +192,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/afs/csail.mit.edu/u/l/liuguanx/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:1': 'cuda:3'})
+    checkpoint = torch.load('/crimea/liuguanx/TieNetReproduction/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:1': 'cuda:3'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     encoder.eval()
 
     # Load word map (word2ix)
-    with open('/afs/csail.mit.edu/u/l/liuguanx/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
+    with open('/crimea/liuguanx/mimic-output/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
