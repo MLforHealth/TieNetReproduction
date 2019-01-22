@@ -12,6 +12,7 @@ from PIL import Image
 import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.cuda.set_device(3)
 
 
 def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=3):
@@ -189,7 +190,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/crimea/liuguanx/2/TieNetReproduction/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:2': 'cpu'})
+    checkpoint = torch.load('/afs/csail.mit.edu/u/l/liuguanx/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:2': 'cpu'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -198,7 +199,7 @@ if __name__ == '__main__':
     encoder.eval()
 
     # Load word map (word2ix)
-    with open('/crimea/liuguanx/mimic-output2/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
+    with open('/crimea/liuguanx/mimic-output/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
@@ -206,12 +207,14 @@ if __name__ == '__main__':
     test_data = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/test.csv')
     text = []
     for idx, row in test_data.iterrows():
-        img = imread('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
+        img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
         # Encode, decode with attention and beam search
-        seq, alphas = caption_image_beam_search(encoder, decoder, img, word_map, 5)
+        seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
         alphas = torch.FloatTensor(alphas)
         words = [rev_word_map[ind] for ind in seq]
-        text.append(' '.join(words))
+        gen_text = ' '.join(words)
+        print(gen_text)
+        text.append(gen_text)
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
     gen_reports.to_csv('/crimea/liuguanx/gen-reports.tsv',sep='\t')
