@@ -190,7 +190,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/crimea/liuguanx/TieNetReproduction/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:2': 'cpu'})
+    checkpoint = torch.load('/crimea/liuguanx/TieNetReproduction/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:2': 'cuda:3'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
