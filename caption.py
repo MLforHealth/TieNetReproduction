@@ -207,7 +207,7 @@ if __name__ == '__main__':
 
     test_data = pd.read_csv('/crimea/liuguanx/dataset/val.csv')
     text = []
-    for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
+    for idx, row in test_data.iterrows():
         img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
         # Encode, decode with attention and beam search
         seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
