@@ -214,7 +214,7 @@ if __name__ == '__main__':
         alphas = torch.FloatTensor(alphas)
         words = [rev_word_map[ind] for ind in seq]
         gen_text = ' '.join(words)
-
+        print(gen_text)
         text.append(gen_text)
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
