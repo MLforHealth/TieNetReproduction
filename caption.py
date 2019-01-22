@@ -143,10 +143,13 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
             break
         step += 1
 
-
-    i = complete_seqs_scores.index(max(complete_seqs_scores))
-    seq = complete_seqs[i]
-    alphas = complete_seqs_alpha[i]
+    if complete_seqs_scores:
+        i = complete_seqs_scores.index(max(complete_seqs_scores))
+        seq = complete_seqs[i]
+        alphas = complete_seqs_alpha[i]
+    else:
+        seq = None
+        alphas = None
 
     return seq, alphas
 
@@ -213,7 +216,10 @@ if __name__ == '__main__':
         # Encode, decode with attention and beam search
         seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
         alphas = torch.FloatTensor(alphas)
-        words = [rev_word_map[ind] for ind in seq]
+        if seq != None:
+            words = [rev_word_map[ind] for ind in seq]
+        else:
+            words = []
         gen_text = ' '.join(words)
         print(gen_text)
         text.append(gen_text)
