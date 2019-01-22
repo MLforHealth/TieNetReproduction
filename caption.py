@@ -11,6 +11,7 @@ from scipy.misc import imread, imresize
 from PIL import Image
 import pandas as pd
 from tqdm import tqdm
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.set_device(3)
@@ -213,16 +214,18 @@ if __name__ == '__main__':
     text = []
     for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
         img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
-        # Encode, decode with attention and beam search
-        seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
-        alphas = torch.FloatTensor(alphas)
-        if seq != None:
-            words = [rev_word_map[ind] for ind in seq]
+        if os.path.isfile(img_path):
+            # Encode, decode with attention and beam search
+            seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
+            alphas = torch.FloatTensor(alphas)
+            if seq != None:
+                words = [rev_word_map[ind] for ind in seq]
+            else:
+                words = []
+            gen_text = ' '.join(words)
+            text.append(gen_text)
         else:
-            words = []
-        gen_text = ' '.join(words)
-        print(gen_text)
-        text.append(gen_text)
+            text.append('No image file.')
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
     gen_reports.to_csv('/crimea/liuguanx/gen-reports.tsv',sep='\t')
