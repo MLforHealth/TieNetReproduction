@@ -190,7 +190,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/afs/csail.mit.edu/u/l/liuguanx/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:2': 'cpu'})
+    checkpoint = torch.load('/crimea/liuguanx/TieNetReproduction/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:2': 'cpu'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
 
-    test_data = pd.read_csv('/crimea/liuguanx/TieNetReproduction/data/test.csv')
+    test_data = pd.read_csv('/crimea/liuguanx/dataset/val.csv')
     text = []
     for idx, row in test_data.iterrows():
         img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
