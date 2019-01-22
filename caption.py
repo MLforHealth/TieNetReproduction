@@ -139,9 +139,10 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
         k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
 
         # Break if things have been going on too long
-        if step > 50:
+        if step > 100:
             break
         step += 1
+
 
     i = complete_seqs_scores.index(max(complete_seqs_scores))
     seq = complete_seqs[i]
