@@ -196,7 +196,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNetReproduction/BEST_5checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:1': 'cuda:3'})
+    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNetReproduction/BEST_5checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:1': 'cuda:1'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -223,6 +223,7 @@ if __name__ == '__main__':
             else:
                 words = []
             gen_text = ' '.join(words)
+            print(gen_text)
             text.append(gen_text)
         else:
             text.append('No image file.')
