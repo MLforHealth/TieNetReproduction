@@ -228,4 +228,4 @@ if __name__ == '__main__':
             text.append('No image file.')
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
-    gen_reports.to_csv('/crimea/liuguanx/gen-reports-5.tsv',sep='\t')
+    gen_reports.to_csv('/data/medg/misc/liuguanx/gen-reports-5.tsv',sep='\t')
