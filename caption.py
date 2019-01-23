@@ -227,5 +227,6 @@ if __name__ == '__main__':
         else:
             text.append('No image file.')
     test_data['text'] = text
+    torch.save(text,'/data/medg/misc/liuguanx/gen-reports-15.pt')
     gen_reports = test_data[['rad_id', 'text']]
     gen_reports.to_csv('/data/medg/misc/liuguanx/gen-reports-15.tsv',index=False,sep='\t')
