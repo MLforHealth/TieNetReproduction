@@ -196,7 +196,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNetReproduction/BEST_10checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar')
+    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNetReproduction/BEST_5checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar')
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -213,20 +213,20 @@ if __name__ == '__main__':
     test_data = pd.read_csv('/data/medg/misc/liuguanx/dataset/val.csv')
     text = []
     for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
-        img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
-        if os.path.isfile(img_path):
-            # Encode, decode with attention and beam search
-            seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
-            alphas = torch.FloatTensor(alphas)
-            if seq != None:
-                words = [rev_word_map[ind] for ind in seq]
-            else:
-                words = []
-            gen_text = ' '.join(words)
-            print(gen_text)
-            text.append(gen_text)
-        else:
-            text.append('No image file.')
+        text.append('abc')
+        # img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
+        # if os.path.isfile(img_path):
+        #     seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
+        #     if seq != None and alphas != None:
+        #         alphas = torch.FloatTensor(alphas)
+        #         words = [rev_word_map[ind] for ind in seq]
+        #     else:
+        #         words = []
+        #     gen_text = ' '.join(words)
+        #     print(gen_text)
+        #     text.append(gen_text)
+        # else:
+        #     text.append('No image file.')
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
-    gen_reports.to_csv('/data/medg/misc/liuguanx/gen-reports-10.tsv',sep='\t')
+    gen_reports.to_csv('/data/medg/misc/liuguanx/gen-reports-5.tsv',index=False,sep='\t')
