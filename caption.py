@@ -196,7 +196,7 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/crimea/liuguanx/TieNetReproduction/BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:1': 'cuda:3'})
+    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNetReproduction/BEST_5checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar',map_location={'cuda:1': 'cuda:3'})
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -205,12 +205,12 @@ if __name__ == '__main__':
     encoder.eval()
 
     # Load word map (word2ix)
-    with open('/crimea/liuguanx/mimic-output/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
+    with open('/data/medg/misc/liuguanx/mimic-output2/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
 
-    test_data = pd.read_csv('/crimea/liuguanx/dataset/val.csv')
+    test_data = pd.read_csv('/data/medg/misc/liuguanx/dataset/val.csv')
     text = []
     for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
         img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
@@ -228,4 +228,4 @@ if __name__ == '__main__':
             text.append('No image file.')
     test_data['text'] = text
     gen_reports = test_data[['rad_id', 'text']]
-    gen_reports.to_csv('/crimea/liuguanx/gen-reports.tsv',sep='\t')
+    gen_reports.to_csv('/crimea/liuguanx/gen-reports-5.tsv',sep='\t')
