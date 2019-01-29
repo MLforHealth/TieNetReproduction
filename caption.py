@@ -214,22 +214,21 @@ if __name__ == '__main__':
     rad = []
     text = []
     for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
-        # img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
-        # if os.path.isfile(img_path):
-        #     seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
-        #     if seq != None and alphas != None:
-        #         alphas = torch.FloatTensor(alphas)
-        #         words = [rev_word_map[ind] for ind in seq]
-        #     else:
-        #         words = []
-        #     gen_text = ' '.join(words)
-        #     print(gen_text)
-        #     text.append(gen_text)
-        # else:
-        #     text.append('No image file.')
+        img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
+        if os.path.isfile(img_path):
+            seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
+            if seq != None and alphas != None:
+                alphas = torch.FloatTensor(alphas)
+                words = [rev_word_map[ind] for ind in seq]
+            else:
+                words = []
+            gen_text = ' '.join(words)
+            print(gen_text)
+            text.append(gen_text)
+        else:
+            text.append('No image file.')
         rad.append(row['rad_id'])
-    # test_data['text'] = text
-    # torch.save(text,'/data/medg/misc/liuguanx/gen-reports-15.pt')
-    # gen_reports = test_data[['rad_id', 'text']]
-    # gen_reports.to_csv('/data/medg/misc/liuguanx/gen-reports-15.tsv',index=False,sep='\t')
-    torch.save(rad,'/data/medg/misc/liuguanx/gen-reports-rad-15.pt')
+    result = {'rad_id':rad, 'text':text}
+    df = pd.DataFrame(data=result)
+    df.to_csv('/data/medg/misc/liuguanx/gen-reports-20.tsv',index=False,sep='\t')
+
