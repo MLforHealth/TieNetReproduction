@@ -24,7 +24,7 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 
 # Training parameters
 start_epoch = 0
-epochs = 20  # number of epochs to train for (if early stopping is not triggered)
+epochs = 40  # number of epochs to train for (if early stopping is not triggered)
 epochs_since_improvement = 0  # keeps track of number of epochs since there's been an improvement in validation BLEU
 batch_size = 32
 workers = 1  # for data-loading; right now, only 1 works with h5py
@@ -45,10 +45,10 @@ def main(checkpoint):
     global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
 
     # Set gpu
-    torch.cuda.set_device(0)
+    torch.cuda.set_device(1)
     print(torch.cuda.current_device())
     if checkpoint:
-        checkpoint = './BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
+        checkpoint = './BEST_20checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
     else:
         checkpoint = None
     # Read word map
