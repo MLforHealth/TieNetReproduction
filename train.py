@@ -71,7 +71,7 @@ def main(checkpoint):
                                              lr=encoder_lr) if fine_tune_encoder else None
 
     else:
-        checkpoint = torch.load(checkpoint)
+        checkpoint = torch.load(checkpoint,map_location={'cuda:0':'cuda:1'})
         print('checkpoint loaded')
         start_epoch = checkpoint['epoch'] + 1
         epochs_since_improvement = checkpoint['epochs_since_improvement']
