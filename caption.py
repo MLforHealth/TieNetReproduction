@@ -228,6 +228,8 @@ if __name__ == '__main__':
         else:
             text.append('No image file.')
         rad.append(row['rad_id'])
+    torch.save(rad,'/data/medg/misc/liuguanx/gen-reports-20rad.pt')
+    torch.save(text,'/data/medg/misc/liuguanx/gen-reports-20text.pt')
     result = {'rad_id':rad, 'text':text}
     df = pd.DataFrame(data=result)
     df.to_csv('/data/medg/misc/liuguanx/gen-reports-20.tsv',index=False,sep='\t')
