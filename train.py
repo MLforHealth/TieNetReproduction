@@ -45,7 +45,7 @@ def main(checkpoint):
     global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
 
     # Set gpu
-    torch.cuda.set_device(0)
+    torch.cuda.set_device(2)
     print(torch.cuda.current_device())
     if checkpoint:
         checkpoint = './BEST_20checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none

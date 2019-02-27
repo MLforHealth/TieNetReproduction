@@ -212,3 +212,11 @@ class DecoderWithAttention(nn.Module):
             alphas[:batch_size_t, t, :] = alpha
 
         return predictions, encoded_captions, decode_lengths, alphas, sort_ind
+
+class AttentionEncodedTextEmbedding(nn.Module):
+
+    def __init__(self, num_global_att, s, hidden_dim, num_hiddens=100):
+        super(AttentionEncodedTextEmbedding, self).__init__()
+
+        self.g1 = nn.Linear(num_hiddens * hidden_dim, s * num_hiddens)
+        self.g2 = nn.Linear(s * num_hiddens, num_global_att * num_hiddens)
