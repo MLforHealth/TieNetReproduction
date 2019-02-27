@@ -194,6 +194,7 @@ class DecoderWithAttention(nn.Module):
         # Create tensors to hold word predicion scores and alphas
         predictions = torch.zeros(batch_size, max(decode_lengths), vocab_size).to(device)
         alphas = torch.zeros(batch_size, max(decode_lengths), num_pixels).to(device)
+        hiddens = torch.zeros(batch_size, max(decode_lengths), self.decoder_dim).to(device)
 
         # At each time-step, decode by
         # attention-weighing the encoder's output based on the decoder's previous hidden state output
@@ -204,6 +205,7 @@ class DecoderWithAttention(nn.Module):
                                                                 h[:batch_size_t])
             gate = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar, (batch_size_t, encoder_dim)
             attention_weighted_encoding = gate * attention_weighted_encoding
+            hiddens[:batch_size_t, t, :] = h
             h, c = self.decode_step(
                 torch.cat([embeddings[:batch_size_t, t, :], attention_weighted_encoding], dim=1),
                 (h[:batch_size_t], c[:batch_size_t]))  # (batch_size_t, decoder_dim)
@@ -211,12 +213,38 @@ class DecoderWithAttention(nn.Module):
             predictions[:batch_size_t, t, :] = preds
             alphas[:batch_size_t, t, :] = alpha
 
-        return predictions, encoded_captions, decode_lengths, alphas, sort_ind
+        return predictions, encoded_captions, decode_lengths, alphas, sort_ind, hiddens
 
-class AttentionEncodedTextEmbedding(nn.Module):
+class JointLearning(nn.Module):
 
-    def __init__(self, num_global_att, s, hidden_dim, num_hiddens=100):
-        super(AttentionEncodedTextEmbedding, self).__init__()
+    def __init__(self, num_global_att, s, decoder_dim, num_hiddens=100):
+        super(JointLearning, self).__init__()
 
-        self.g1 = nn.Linear(num_hiddens * hidden_dim, s * num_hiddens)
-        self.g2 = nn.Linear(s * num_hiddens, num_global_att * num_hiddens)
+        self.r = num_global_att
+        self.s = s
+        self.decoder_dim = decoder_dim
+        self.g1 = nn.Linear(decoder_dim, s, bias=False)
+        self.g2 = nn.Linear(s, num_global_att, bias=False)
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(dim=1)
+    
+    def forward(self, hidden_states, alphas, encoder_out):
+        """
+        :param hidden_states: (batch_size, report_length, decoder_dim)
+        :param alphas: (batch_size, report_length, num_pixels)
+        :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+        """
+        T = hidden_states.size(1)
+        out = self.g1(hidden_states)
+        out = self.tanh(out)
+        out = self.g2(out)
+        G = self.softmax(out) #(batch_size, report_length, num_global_att(r))
+        M = torch.matmul(torch.transpose(hidden_states, 1, 2), G) #(batch_size, decoder_dim, num_global_att(r))
+        AETE = torch.max(M, 2)[0].unsqueeze(2) #(batch_size, decoder_dim, 1)
+
+        g = torch.max(G, 2)[0] #(batch_size, report_length)
+        a = torch.matmul(torch.transpose(alphas, 1, 2), g.unsqueeze(2)) #(batch_size, num_pixels, 1)
+        SW_GAP = torch.matmul(torch.transpose(encoder_out, 1, 2), a) #(batch_size, encoder_dim, 1)
+
+        X = torch.cat((AETE,SW_GAP), 1) #batch_size, decoder_dim + encoder_dim, 1)
+        return X
