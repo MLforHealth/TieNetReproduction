@@ -217,22 +217,25 @@ class DecoderWithAttention(nn.Module):
 
 class JointLearning(nn.Module):
 
-    def __init__(self, num_global_att, s, decoder_dim, num_hiddens=100):
+    def __init__(self, num_global_att, s, decoder_dim, label_size, encoder_dim=2048, num_hiddens=100):
         super(JointLearning, self).__init__()
 
         self.r = num_global_att
         self.s = s
         self.decoder_dim = decoder_dim
-        self.g1 = nn.Linear(decoder_dim, s, bias=False)
-        self.g2 = nn.Linear(s, num_global_att, bias=False)
+        self.g1 = nn.Linear(decoder_dim, s, bias=False) #(batch_size, report_length, s)
+        self.g2 = nn.Linear(s, num_global_att, bias=False) #(batch_size, report_length, number_global_att(r))
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=1)
+        self.fc = nn.Linear(decoder_dim + encoder_dim, label_size) #(batch_size, decoder_dim + encoder_dim, label_size)
     
     def forward(self, hidden_states, alphas, encoder_out):
         """
         :param hidden_states: (batch_size, report_length, decoder_dim)
         :param alphas: (batch_size, report_length, num_pixels)
         :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+
+        return (batch_size, label_size)
         """
         T = hidden_states.size(1)
         out = self.g1(hidden_states)
@@ -246,5 +249,7 @@ class JointLearning(nn.Module):
         a = torch.matmul(torch.transpose(alphas, 1, 2), g.unsqueeze(2)) #(batch_size, num_pixels, 1)
         SW_GAP = torch.matmul(torch.transpose(encoder_out, 1, 2), a) #(batch_size, encoder_dim, 1)
 
-        X = torch.cat((AETE,SW_GAP), 1) #batch_size, decoder_dim + encoder_dim, 1)
-        return X
+        X = torch.cat((AETE,SW_GAP), 1) #(batch_size, decoder_dim + encoder_dim, 1)
+        X = X.squeeze(2) #(batch_size, decoder_dim + encoder_dim)
+        out = self.fc(X)
+        return out

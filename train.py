@@ -5,7 +5,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from models import Encoder, DecoderWithAttention
+from models import Encoder, DecoderWithAttention, JointLearning
 from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
@@ -19,6 +19,9 @@ emb_dim = 512  # dimension of word embeddings
 attention_dim = 512  # dimension of attention linear layers
 decoder_dim = 512  # dimension of decoder RNN
 dropout = 0.5
+num_global_att = 
+s = 
+label_size = 14
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
@@ -30,6 +33,7 @@ batch_size = 32
 workers = 1  # for data-loading; right now, only 1 works with h5py
 encoder_lr = 1e-4  # learning rate for encoder if fine-tuning
 decoder_lr = 4e-4  # learning rate for decoder
+jointlearning_lr = 2e-4 # learning rate for joint learning
 grad_clip = 5.  # clip gradients at an absolute value of
 alpha_c = 1.  # regularization parameter for 'doubly stochastic attention', as in the paper
 best_bleu4 = 0.  # BLEU-4 score right now
@@ -70,6 +74,13 @@ def main(checkpoint):
         encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, encoder.parameters()),
                                              lr=encoder_lr) if fine_tune_encoder else None
 
+        jointlearner = JointLearning(num_global_att=num_global_att,
+                                    s=s,
+                                    decoder_dim=decoder_dim,
+                                    label_size=label_size)
+        jointlearner_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, jointlearner.parameters()),
+                                                  lr=jointlearning_lr)
+
     else:
         checkpoint = torch.load(checkpoint,map_location={'cuda:0':'cuda:1'})
         print('checkpoint loaded')
@@ -80,6 +91,8 @@ def main(checkpoint):
         decoder_optimizer = checkpoint['decoder_optimizer']
         encoder = checkpoint['encoder']
         encoder_optimizer = checkpoint['encoder_optimizer']
+        jointlearner = checkpoint['jointlearner']
+        jointlearner_optimizer = checkpoint['jointlearner_optimizer']
         if fine_tune_encoder is True and encoder_optimizer is None:
             encoder.fine_tune(fine_tune_encoder)
             encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, encoder.parameters()),
@@ -88,9 +101,11 @@ def main(checkpoint):
     # Move to GPU, if available
     decoder = decoder.to(device)
     encoder = encoder.to(device)
+    jointlearner = jointlearner.to(device)
 
     # Loss function
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion_R = nn.CrossEntropyLoss().to(device)
+    criterion_C = nn.BCEWithLogitsLoss().to(device)
 
     # Custom dataloaders
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -110,6 +125,7 @@ def main(checkpoint):
             break
         if epochs_since_improvement > 0 and epochs_since_improvement % 8 == 0:
             adjust_learning_rate(decoder_optimizer, 0.8)
+            adjust_learning_rate(jointlearner_optimizer, 0.8)
             if fine_tune_encoder:
                 adjust_learning_rate(encoder_optimizer, 0.8)
 
@@ -117,16 +133,20 @@ def main(checkpoint):
         train(train_loader=train_loader,
               encoder=encoder,
               decoder=decoder,
-              criterion=criterion,
+              criterion_R=criterion_R,
+              criterion_C=criterion_C,
               encoder_optimizer=encoder_optimizer,
               decoder_optimizer=decoder_optimizer,
+              jointlearner_optimizer=jointlearner_optimizer,
               epoch=epoch)
 
         # One epoch's validation
         recent_bleu4 = validate(val_loader=val_loader,
                                 encoder=encoder,
                                 decoder=decoder,
-                                criterion=criterion)
+                                jointlearner=jointlearner,
+                                criterion_R=criterion_R,
+                                criterion_C=criterion_C)
 
         # Check if there was an improvement
         is_best = recent_bleu4 > best_bleu4
@@ -138,11 +158,11 @@ def main(checkpoint):
             epochs_since_improvement = 0
 
         # Save checkpoint
-        save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
-                        decoder_optimizer, recent_bleu4, is_best)
+        save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, jointlearner, encoder_optimizer,
+                        decoder_optimizer, jointlearner_optimizer, recent_bleu4, is_best)
 
 
-def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, epoch):
+def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, encoder_optimizer, decoder_optimizer, jointlearner_optimizer, epoch):
     """
     Performs one epoch's training.
 
@@ -157,6 +177,7 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
     decoder.train()  # train mode (dropout and batchnorm is used)
     encoder.train()
+    jointlearner.train()
 
     batch_time = AverageMeter()  # forward prop. + back prop. time
     data_time = AverageMeter()  # data loading time
@@ -176,7 +197,8 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Forward prop.
         imgs = encoder(imgs)
-        scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(imgs, caps, caplens)
+        scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
+        _label = jointlearner(hiddens, alphas, imgs)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -187,13 +209,22 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
         targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
         # Calculate loss
-        loss = criterion(scores, targets)
+        loss_R = criterion_R(scores, targets)
 
         # Add doubly stochastic attention regularization
-        loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
+        loss_R += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
+
+        #TODO:load labels
+        loss_C = criterion_C(_label, label)
+
+        #TODO: adjust alpha
+        loss_alpha = 0.5
+
+        loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
 
         # Back prop.
         decoder_optimizer.zero_grad()
+        jointlearner_optimizer.zero_grad()
         if encoder_optimizer is not None:
             encoder_optimizer.zero_grad()
         loss.backward()
@@ -201,11 +232,13 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
         # Clip gradients
         if grad_clip is not None:
             clip_gradient(decoder_optimizer, grad_clip)
+            clip_gradient(jointlearner_optimizer, grad_clip)
             if encoder_optimizer is not None:
                 clip_gradient(encoder_optimizer, grad_clip)
 
         # Update weights
         decoder_optimizer.step()
+        jointlearner_optimizer.step()
         if encoder_optimizer is not None:
             encoder_optimizer.step()
 
@@ -229,7 +262,7 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
                                                                           top5=top5accs))
 
 
-def validate(val_loader, encoder, decoder, criterion):
+def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_C):
     """
     Performs one epoch's validation.
 
@@ -240,6 +273,7 @@ def validate(val_loader, encoder, decoder, criterion):
     :return: BLEU-4 score
     """
     decoder.eval()  # eval mode (no dropout or batchnorm)
+    jointlearner.eval()
     if encoder is not None:
         encoder.eval()
 
@@ -263,7 +297,8 @@ def validate(val_loader, encoder, decoder, criterion):
         # Forward prop.
         if encoder is not None:
             imgs = encoder(imgs)
-        scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(imgs, caps, caplens)
+        scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
+        _label = jointlearner(hiddens, alphas, imgs)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -275,10 +310,18 @@ def validate(val_loader, encoder, decoder, criterion):
         targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
         # Calculate loss
-        loss = criterion(scores, targets)
+        loss_R = criterion_R(scores, targets)
 
         # Add doubly stochastic attention regularization
-        loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
+        loss_R += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
+
+        #TODO:load label
+        loss_C = criterion_C(_label, label)
+
+        #TODO: adjust alpha
+        loss_alpha = 0.5
+
+        loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
 
         # Keep track of metrics
         losses.update(loss.item(), sum(decode_lengths))
