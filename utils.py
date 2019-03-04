@@ -133,12 +133,8 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
                        max_len=100):
 
     assert dataset in {'mimiccxr'}
-
-    # Read mimic-cxr-map file
-    data = pd.read_csv(os.path.join(base_path, 'mimic-cxr-map.csv'), sep=',', header=0)
-    data = data.loc[data['dicom_is_available'],:]
-    
-    # Split data into three set
+ 
+    # load data into three set
     train = pd.read_csv('/crimea/liuguanx/dataset/train-ap.tsv', sep='\t')
     val = pd.read_csv('/crimea/liuguanx/dataset/val-ap.tsv', sep='\t')
     test = pd.read_csv('/crimea/liuguanx/dataset/test-ap.tsv', sep='\t')
