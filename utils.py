@@ -90,10 +90,10 @@ def parse_report(path):
     return parsed_report
 
 def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
+    dic = {}
     image_paths = []
     image_report = []
     image_files = os.listdir('/data/medg/misc/interpretable-report-gen/cache/images/')
-    report_files = os.listdir(os.path.join(base_path,'reports'))
     stop_words = stopwords.words('english')
     my_new_stop_words = ['the','and','to','of','was','with','a','on','in','for','name',
                  'is','patient','s','he','at','as','or','one','she','his','her','am',
@@ -104,27 +104,30 @@ def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
     stop_words = set(stop_words)
 
     for idx, row in dataframe.iterrows():
-        if (str(row['dicom_id']) + '.png') in image_files and (str(row['rad_id']) + '.txt') in report_files:
-            report = []
-            report_path = os.path.join(base_path,'reports',str(row['rad_id']) + '.txt')
+        if (str(row['dicom_id']) + '.png') in image_files:
+            reports = []
             path = os.path.join('/data/medg/misc/interpretable-report-gen/cache/images', str(row['dicom_id']) + '.png')
 
-            parsed_report = parse_report(report_path)
-            if 'findings' in parsed_report:
-                tokens = word_tokenize(parsed_report['findings'])
+            report = row['text']
+            if report:
+                tokens = word_tokenize(report)
                 if stopword:
                     filtered_tokens = [w for w in tokens if not w in stop_words]
                 else:
                     filtered_tokens = tokens
                 word_freq.update(filtered_tokens)
                 if len(filtered_tokens) <= max_len:
-                    report.append(filtered_tokens)
-                if len(report) == 0:
+                    reports.append(filtered_tokens)
+                if len(reports) == 0:
                     continue
 
                 image_paths.append(path)
-                image_report.append(report)
-    return image_paths, image_report
+                image_report.append(reports)
+
+    dic['images'] = image_paths
+    dic['report'] = image_report
+    dic['label'] = dataframe.as_matrix(columns=dataframe.columns[6:])
+    return dic
 
 def create_input_files(dataset, base_path, captions_per_image, min_word_freq, output_folder,
                        max_len=100):
@@ -136,17 +139,25 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
     data = data.loc[data['dicom_is_available'],:]
     
     # Split data into three set
-    train = pd.read_csv('/crimea/liuguanx/dataset/train.csv')
-    val = pd.read_csv('/crimea/liuguanx/dataset/val.csv')
-    test = pd.read_csv('/crimea/liuguanx/dataset/test.csv')
+    train = pd.read_csv('/crimea/liuguanx/dataset/train-ap.tsv', sep='\t')
+    val = pd.read_csv('/crimea/liuguanx/dataset/val-ap.tsv', sep='\t')
+    test = pd.read_csv('/crimea/liuguanx/dataset/test-ap.tsv', sep='\t')
 
 
     # Read image paths and reports for each image
     word_freq = Counter()
 
-    train_image_paths, train_image_captions = iterate_csv(base_path,train,word_freq,max_len)
-    val_image_paths, val_image_captions = iterate_csv(base_path,val,word_freq,max_len)
-    test_image_paths, test_image_captions = iterate_csv(base_path,test,word_freq,max_len)
+    train_dict = iterate_csv(base_path,train,word_freq,max_len)
+    train_image_paths = train_dict['images']
+    train_image_captions = train_dict['report']
+
+    val_dict = iterate_csv(base_path,val,word_freq,max_len)
+    val_image_paths = val_dict['images']
+    val_image_captions = val_dict['report']
+
+    test_dict = iterate_csv(base_path,test,word_freq,max_len)
+    test_image_paths = test_dict['images']
+    test_image_captions = test_dict['report']
 
     # Sanity check
     assert len(train_image_paths) == len(train_image_captions)
@@ -163,6 +174,10 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
 
     # Create a base/root name for all output files
     base_filename = dataset + '_' + str(captions_per_image) + '_cap_per_img_' + str(min_word_freq) + '_min_word_freq'
+
+    np.save(os.path.join(output_folder, 'TRAIN' + '_LABELS_' + base_filename + '.npy'), train_dict['label'])
+    np.save(os.path.join(output_folder, 'VAL' + '_LABELS_' + base_filename + '.npy'), val_dict['label'])
+    np.save(os.path.join(output_folder, 'TEST' + '_LABELS_' + base_filename + '.npy'), test_dict['label'])
 
     # Save word map to a JSON
     with open(os.path.join(output_folder, 'WORDMAP_' + base_filename + '.json'), 'w') as j:

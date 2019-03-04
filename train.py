@@ -133,6 +133,7 @@ def main(checkpoint):
         train(train_loader=train_loader,
               encoder=encoder,
               decoder=decoder,
+              jointlearner=jointlearner,
               criterion_R=criterion_R,
               criterion_C=criterion_C,
               encoder_optimizer=encoder_optimizer,
@@ -187,18 +188,19 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
     start = time.time()
 
     # Batches
-    for i, (imgs, caps, caplens) in enumerate(train_loader):
+    for i, (imgs, caps, caplens, labels) in enumerate(train_loader):
         data_time.update(time.time() - start)
 
         # Move to GPU, if available
         imgs = imgs.to(device)
         caps = caps.to(device)
         caplens = caplens.to(device)
+        labels = labels.to(device)
 
         # Forward prop.
         imgs = encoder(imgs)
         scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
-        _label = jointlearner(hiddens, alphas, imgs)
+        _labels = jointlearner(hiddens, alphas, imgs)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -215,7 +217,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         loss_R += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
         #TODO:load labels
-        loss_C = criterion_C(_label, label)
+        loss_C = criterion_C(_labels, labels)
 
         #TODO: adjust alpha
         loss_alpha = 0.5
@@ -287,18 +289,18 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
     hypotheses = list()  # hypotheses (predictions)
 
     # Batches
-    for i, (imgs, caps, caplens, allcaps) in enumerate(val_loader):
+    for i, (imgs, caps, caplens, allcaps, labels) in enumerate(val_loader):
 
         # Move to device, if available
         imgs = imgs.to(device)
         caps = caps.to(device)
         caplens = caplens.to(device)
-
+        labels = labels.to(device)
         # Forward prop.
         if encoder is not None:
             imgs = encoder(imgs)
         scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
-        _label = jointlearner(hiddens, alphas, imgs)
+        _labels = jointlearner(hiddens, alphas, imgs)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -316,7 +318,7 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
         loss_R += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
         #TODO:load label
-        loss_C = criterion_C(_label, label)
+        loss_C = criterion_C(_labels, labels)
 
         #TODO: adjust alpha
         loss_alpha = 0.5
