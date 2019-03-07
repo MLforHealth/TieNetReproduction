@@ -54,7 +54,7 @@ class CaptionDataset(Dataset):
 
         caplen = torch.LongTensor([self.caplens[i]])
 
-        label = torch.LongTensor(self.labels[i // self.cpi])
+        label = torch.FloatTensor(self.labels[i // self.cpi])
 
         if self.split is 'TRAIN':
             return img, caption, caplen, label

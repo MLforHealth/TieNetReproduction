@@ -205,7 +205,7 @@ class DecoderWithAttention(nn.Module):
                                                                 h[:batch_size_t])
             gate = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar, (batch_size_t, encoder_dim)
             attention_weighted_encoding = gate * attention_weighted_encoding
-            hiddens[:batch_size_t, t, :] = h
+            hiddens[:batch_size_t, t, :] = h[:batch_size_t]
             h, c = self.decode_step(
                 torch.cat([embeddings[:batch_size_t, t, :], attention_weighted_encoding], dim=1),
                 (h[:batch_size_t], c[:batch_size_t]))  # (batch_size_t, decoder_dim)
@@ -228,6 +228,7 @@ class JointLearning(nn.Module):
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=1)
         self.fc = nn.Linear(decoder_dim + encoder_dim, label_size) #(batch_size, decoder_dim + encoder_dim, label_size)
+        self.sigmoid = nn.Sigmoid()
     
     def forward(self, hidden_states, alphas, encoder_out):
         """
@@ -237,6 +238,9 @@ class JointLearning(nn.Module):
 
         return (batch_size, label_size)
         """
+        batch_size = encoder_out.size(0)
+        encoder_dim = encoder_out.size(-1)
+
         T = hidden_states.size(1)
         out = self.g1(hidden_states)
         out = self.tanh(out)
@@ -247,9 +251,12 @@ class JointLearning(nn.Module):
 
         g = torch.max(G, 2)[0] #(batch_size, report_length)
         a = torch.matmul(torch.transpose(alphas, 1, 2), g.unsqueeze(2)) #(batch_size, num_pixels, 1)
+
+        encoder_out = encoder_out.view(batch_size, -1, encoder_dim) # (batch_size, num_pixels, encoder_dim)
         SW_GAP = torch.matmul(torch.transpose(encoder_out, 1, 2), a) #(batch_size, encoder_dim, 1)
 
         X = torch.cat((AETE,SW_GAP), 1) #(batch_size, decoder_dim + encoder_dim, 1)
         X = X.squeeze(2) #(batch_size, decoder_dim + encoder_dim)
         out = self.fc(X)
+        out = self.sigmoid(out)
         return out

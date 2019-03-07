@@ -11,7 +11,7 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import argparse
 # Data parameters
-data_folder = '/data/medg/misc/liuguanx/mimic-output2/'  # folder with data files saved by create_input_files.py
+data_folder = '/data/medg/misc/liuguanx/TieNet/mimic-output/'  # folder with data files saved by create_input_files.py
 data_name = 'mimiccxr_1_cap_per_img_5_min_word_freq'  # base name shared by data files
 
 # Model parameters
@@ -22,7 +22,7 @@ dropout = 0.5
 num_global_att = 10
 s = 100
 label_size = 14
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
 # Training parameters
@@ -49,10 +49,8 @@ def main(checkpoint):
     global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
 
     # Set gpu
-    torch.cuda.set_device(2)
-    print(torch.cuda.current_device())
     if checkpoint:
-        checkpoint = './BEST_20checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
+        checkpoint = './BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
     else:
         checkpoint = None
     # Read word map
@@ -99,9 +97,15 @@ def main(checkpoint):
                                                  lr=encoder_lr)
 
     # Move to GPU, if available
+    if torch.cuda.device_count() > 1:
+        print('Using', torch.cuda.device_count(), 'GPUs')
+        # decoder = nn.DataParallel(decoder)
+        encoder = nn.DataParallel(encoder)
+        jointlearner = nn.DataParallel(jointlearner)
     decoder = decoder.to(device)
     encoder = encoder.to(device)
     jointlearner = jointlearner.to(device)
+
 
     # Loss function
     criterion_R = nn.CrossEntropyLoss().to(device)
@@ -201,7 +205,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         imgs = encoder(imgs)
         scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
         _labels = jointlearner(hiddens, alphas, imgs)
-
+    
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
 
@@ -220,8 +224,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         loss_C = criterion_C(_labels, labels)
 
         #TODO: adjust alpha
-        loss_alpha = 0.5
-
+        loss_alpha = 0.9
         loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
 
         # Back prop.
@@ -321,7 +324,7 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
         loss_C = criterion_C(_labels, labels)
 
         #TODO: adjust alpha
-        loss_alpha = 0.5
+        loss_alpha = 0.9
 
         loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
 

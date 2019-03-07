@@ -89,7 +89,7 @@ def parse_report(path):
 
     return parsed_report
 
-def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
+def iterate_csv(dataframe, word_freq, max_len, stopword=False):
     dic = {}
     image_paths = []
     image_report = []
@@ -103,7 +103,7 @@ def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
     stop_words.extend(my_new_stop_words)
     stop_words = set(stop_words)
 
-    for idx, row in dataframe.iterrows():
+    for idx, row in tqdm(dataframe.iterrows(), total=dataframe.shape[0]):
         if (str(row['dicom_id']) + '.png') in image_files:
             reports = []
             path = os.path.join('/data/medg/misc/interpretable-report-gen/cache/images', str(row['dicom_id']) + '.png')
@@ -129,7 +129,7 @@ def iterate_csv(base_path, dataframe, word_freq, max_len, stopword=False):
     dic['label'] = dataframe.as_matrix(columns=dataframe.columns[6:])
     return dic
 
-def create_input_files(dataset, base_path, captions_per_image, min_word_freq, output_folder,
+def create_input_files(dataset, captions_per_image, min_word_freq, output_folder,
                        max_len=100):
 
     assert dataset in {'mimiccxr'}
@@ -143,15 +143,15 @@ def create_input_files(dataset, base_path, captions_per_image, min_word_freq, ou
     # Read image paths and reports for each image
     word_freq = Counter()
 
-    train_dict = iterate_csv(base_path,train,word_freq,max_len)
+    train_dict = iterate_csv(train,word_freq,max_len)
     train_image_paths = train_dict['images']
     train_image_captions = train_dict['report']
 
-    val_dict = iterate_csv(base_path,val,word_freq,max_len)
+    val_dict = iterate_csv(val,word_freq,max_len)
     val_image_paths = val_dict['images']
     val_image_captions = val_dict['report']
 
-    test_dict = iterate_csv(base_path,test,word_freq,max_len)
+    test_dict = iterate_csv(test,word_freq,max_len)
     test_image_paths = test_dict['images']
     test_image_captions = test_dict['report']
 
