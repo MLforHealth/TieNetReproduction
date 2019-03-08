@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 import torch.nn.functional as F
 import numpy as np
 import json
@@ -14,10 +15,9 @@ from tqdm import tqdm
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.cuda.set_device(2)
 
 
-def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=3):
+def caption_image_beam_search(encoder, decoder, jointlearner, image_path, word_map, beam_size=3):
     """
     Reads an image and captions it with beam search.
 
@@ -48,12 +48,12 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
 
     # Encode
     image = image.unsqueeze(0)  # (1, 3, 256, 256)
-    encoder_out = encoder(image)  # (1, enc_image_size, enc_image_size, encoder_dim)
-    enc_image_size = encoder_out.size(1)
-    encoder_dim = encoder_out.size(3)
+    origin_encoder_out = encoder(image)  # (1, enc_image_size, enc_image_size, encoder_dim)
+    enc_image_size = origin_encoder_out.size(1)
+    encoder_dim = origin_encoder_out.size(3)
 
     # Flatten encoding
-    encoder_out = encoder_out.view(1, -1, encoder_dim)  # (1, num_pixels, encoder_dim)
+    encoder_out = origin_encoder_out.view(1, -1, encoder_dim)  # (1, num_pixels, encoder_dim)
     num_pixels = encoder_out.size(1)
 
     # We'll treat the problem as having a batch size of k
@@ -75,10 +75,14 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
     complete_seqs = list()
     complete_seqs_alpha = list()
     complete_seqs_scores = list()
+    complete_seqs_hiddens = list()
 
     # Start decoding
     step = 1
-    h, c = decoder.init_hidden_state(encoder_out)
+    h, c = decoder.init_hidden_state(encoder_out) # (k, decoder_dim)
+
+    # Tensor to store top k previous hiddens at each step; now they're just initial h
+    seqs_hiddens = h.unsqueeze(1) # (k, 1, decoder_dim)
 
     # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
     while True:
@@ -111,10 +115,11 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
         prev_word_inds = top_k_words / vocab_size  # (s)
         next_word_inds = top_k_words % vocab_size  # (s)
 
-        # Add new words to sequences, alphas
+        # Add new words to sequences, alphas, hiddens
         seqs = torch.cat([seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim=1)  # (s, step+1)
         seqs_alpha = torch.cat([seqs_alpha[prev_word_inds], alpha[prev_word_inds].unsqueeze(1)],
                                dim=1)  # (s, step+1, enc_image_size, enc_image_size)
+        seqs_hiddens = torch.cat([seqs_hiddens[prev_word_inds], h[prev_word_inds].unsqueeze(1)], dim=1)
 
         # Which sequences are incomplete (didn't reach <end>)?
         incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if
@@ -125,6 +130,7 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
         if len(complete_inds) > 0:
             complete_seqs.extend(seqs[complete_inds].tolist())
             complete_seqs_alpha.extend(seqs_alpha[complete_inds].tolist())
+            complete_seqs_hiddens.extend(seqs_hiddens[complete_inds].tolist())
             complete_seqs_scores.extend(top_k_scores[complete_inds])
         k -= len(complete_inds)  # reduce beam length accordingly
 
@@ -133,6 +139,7 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
             break
         seqs = seqs[incomplete_inds]
         seqs_alpha = seqs_alpha[incomplete_inds]
+        seqs_hiddens = seqs_hiddens[incomplete_inds]
         h = h[prev_word_inds[incomplete_inds]]
         c = c[prev_word_inds[incomplete_inds]]
         encoder_out = encoder_out[prev_word_inds[incomplete_inds]]
@@ -148,10 +155,23 @@ def caption_image_beam_search(encoder, decoder, image_path, word_map, beam_size=
         i = complete_seqs_scores.index(max(complete_seqs_scores))
         seq = complete_seqs[i]
         alphas = complete_seqs_alpha[i]
+        hiddens = complete_seqs_hiddens[i]
     else:
         seq = None
         alphas = None
-
+        hiddens = None
+    
+    if (alphas):
+        hiddens_tensor = torch.FloatTensor(hiddens)
+        alphas_tensor = torch.FloatTensor(alphas)
+        alphas_tensor = alphas_tensor.view(alphas_tensor.size(0), -1)
+        hiddens_tensor = hiddens_tensor.unsqueeze(0)
+        alphas_tensor = alphas_tensor.unsqueeze(0)
+        labels = jointlearner(hiddens_tensor, alphas_tensor, origin_encoder_out)
+        sigmoid = nn.Sigmoid()
+        labels = sigmoid(labels)
+        labels = torch.where(labels >= 0.00001, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device))
+        print(labels)
     return seq, alphas
 
 
@@ -196,16 +216,19 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 if __name__ == '__main__':
 
     # Load model
-    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNetReproduction/BEST_20checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar')
+    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNet/TieNetReproduction/checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar')
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
     encoder = checkpoint['encoder']
     encoder = encoder.to(device)
     encoder.eval()
+    jointlearner = checkpoint['jointlearner']
+    jointlearner = jointlearner.to(device)
+    jointlearner.eval()
 
     # Load word map (word2ix)
-    with open('/data/medg/misc/liuguanx/mimic-output2/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
+    with open('/data/medg/misc/liuguanx/TieNet/mimic-output/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
@@ -216,7 +239,7 @@ if __name__ == '__main__':
     for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
         img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
         if os.path.isfile(img_path):
-            seq, alphas = caption_image_beam_search(encoder, decoder, img_path, word_map, 5)
+            seq, alphas = caption_image_beam_search(encoder, decoder, jointlearner, img_path, word_map, 5)
             if seq != None and alphas != None:
                 alphas = torch.FloatTensor(alphas)
                 words = [rev_word_map[ind] for ind in seq]

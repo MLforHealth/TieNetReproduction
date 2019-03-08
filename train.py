@@ -1,4 +1,6 @@
 import time
+import os
+import datetime
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
@@ -6,12 +8,13 @@ import torchvision.transforms as transforms
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from models import Encoder, DecoderWithAttention, JointLearning
+# from log import SummaryWriter
 from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import argparse
 # Data parameters
-data_folder = '/data/medg/misc/liuguanx/TieNet/mimic-output/'  # folder with data files saved by create_input_files.py
+data_folder = '/data/medg/misc/liuguanx/TieNet/mimic-output-ap/'  # folder with data files saved by create_input_files.py
 data_name = 'mimiccxr_1_cap_per_img_5_min_word_freq'  # base name shared by data files
 
 # Model parameters
@@ -22,7 +25,7 @@ dropout = 0.5
 num_global_att = 10
 s = 100
 label_size = 14
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
 # Training parameters
@@ -47,6 +50,9 @@ def main(checkpoint):
     """
 
     global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
+
+    dest_dir = os.path.join('/data/medg/misc/liuguanx/TieNet/models', datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S-%f'))
+    os.makedirs(dest_dir)
 
     # Set gpu
     if checkpoint:
@@ -143,7 +149,8 @@ def main(checkpoint):
               encoder_optimizer=encoder_optimizer,
               decoder_optimizer=decoder_optimizer,
               jointlearner_optimizer=jointlearner_optimizer,
-              epoch=epoch)
+              epoch=epoch,
+              dest_dir=dest_dir)
 
         # One epoch's validation
         recent_bleu4 = validate(val_loader=val_loader,
@@ -164,10 +171,10 @@ def main(checkpoint):
 
         # Save checkpoint
         save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, jointlearner, encoder_optimizer,
-                        decoder_optimizer, jointlearner_optimizer, recent_bleu4, is_best)
+                        decoder_optimizer, jointlearner_optimizer, recent_bleu4, is_best, dest_dir)
 
 
-def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, encoder_optimizer, decoder_optimizer, jointlearner_optimizer, epoch):
+def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, encoder_optimizer, decoder_optimizer, jointlearner_optimizer, epoch, dest_dir):
     """
     Performs one epoch's training.
 
@@ -190,6 +197,8 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
     top5accs = AverageMeter()  # top5 accuracy
 
     start = time.time()
+
+    # writer = SummaryWriter(dest_dir)
 
     # Batches
     for i, (imgs, caps, caplens, labels) in enumerate(train_loader):
@@ -224,7 +233,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         loss_C = criterion_C(_labels, labels)
 
         #TODO: adjust alpha
-        loss_alpha = 0.9
+        loss_alpha = 0.5
         loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
 
         # Back prop.
@@ -252,6 +261,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         losses.update(loss.item(), sum(decode_lengths))
         top5accs.update(top5, sum(decode_lengths))
         batch_time.update(time.time() - start)
+
 
         start = time.time()
 

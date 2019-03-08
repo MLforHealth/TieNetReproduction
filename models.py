@@ -234,7 +234,7 @@ class JointLearning(nn.Module):
         """
         :param hidden_states: (batch_size, report_length, decoder_dim)
         :param alphas: (batch_size, report_length, num_pixels)
-        :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+        :param encoder_out: encoded images, a tensor of dimension (batch_size, enc_size x enc_size, encoder_dim)
 
         return (batch_size, label_size)
         """
@@ -258,5 +258,5 @@ class JointLearning(nn.Module):
         X = torch.cat((AETE,SW_GAP), 1) #(batch_size, decoder_dim + encoder_dim, 1)
         X = X.squeeze(2) #(batch_size, decoder_dim + encoder_dim)
         out = self.fc(X)
-        out = self.sigmoid(out)
+        # out = self.sigmoid(out)
         return out
