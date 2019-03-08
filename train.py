@@ -233,7 +233,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         loss_C = criterion_C(_labels, labels)
 
         #TODO: adjust alpha
-        loss_alpha = 0.5
+        loss_alpha = 0.85
         loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
 
         # Back prop.

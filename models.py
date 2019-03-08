@@ -228,7 +228,6 @@ class JointLearning(nn.Module):
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=1)
         self.fc = nn.Linear(decoder_dim + encoder_dim, label_size) #(batch_size, decoder_dim + encoder_dim, label_size)
-        self.sigmoid = nn.Sigmoid()
     
     def forward(self, hidden_states, alphas, encoder_out):
         """
@@ -258,5 +257,4 @@ class JointLearning(nn.Module):
         X = torch.cat((AETE,SW_GAP), 1) #(batch_size, decoder_dim + encoder_dim, 1)
         X = X.squeeze(2) #(batch_size, decoder_dim + encoder_dim)
         out = self.fc(X)
-        # out = self.sigmoid(out)
         return out

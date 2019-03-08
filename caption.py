@@ -13,6 +13,7 @@ from PIL import Image
 import pandas as pd
 from tqdm import tqdm
 import os
+import sys
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -170,8 +171,18 @@ def caption_image_beam_search(encoder, decoder, jointlearner, image_path, word_m
         labels = jointlearner(hiddens_tensor, alphas_tensor, origin_encoder_out)
         sigmoid = nn.Sigmoid()
         labels = sigmoid(labels)
-        labels = torch.where(labels >= 0.00001, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device))
-        print(labels)
+        # print(labels)
+        labels = torch.where(labels >= 0.01, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device))
+        classes = ['No Finding', 'Enlarged Cardiomediastinum',
+        'Cardiomegaly', 'Lung Lesion', 'Airspace Opacity', 'Edema',
+        'Consolidation', 'Pneumonia', 'Atelectasis', 'Pneumothorax',
+        'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']
+        labelss = labels.squeeze(0).tolist()
+        output_classes = []
+        for i in range(len(classes)):
+            if labelss[i]:
+                output_classes.append(classes[i])
+        print(output_classes)
     return seq, alphas
 
 
@@ -215,8 +226,11 @@ def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
 
 if __name__ == '__main__':
 
+    # parser = argparse.ArgumentParser(description='TieNet')
+    # parser.add_argument('--model', '-m', help='path to model')
+    # args = parser.parse_args()
     # Load model
-    checkpoint = torch.load('/data/medg/misc/liuguanx/TieNet/TieNetReproduction/checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar')
+    checkpoint = torch.load(sys.argv[1])
     decoder = checkpoint['decoder']
     decoder = decoder.to(device)
     decoder.eval()
@@ -228,7 +242,7 @@ if __name__ == '__main__':
     jointlearner.eval()
 
     # Load word map (word2ix)
-    with open('/data/medg/misc/liuguanx/TieNet/mimic-output/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
+    with open('/data/medg/misc/liuguanx/TieNet/mimic-output-ap/WORDMAP_mimiccxr_1_cap_per_img_5_min_word_freq.json', 'r') as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
