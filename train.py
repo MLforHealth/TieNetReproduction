@@ -50,14 +50,13 @@ def main(checkpoint):
     """
 
     global best_bleu4, epochs_since_improvement, start_epoch, fine_tune_encoder, data_name, word_map
-
-    dest_dir = os.path.join('/data/medg/misc/liuguanx/TieNet/models', datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S-%f'))
-    os.makedirs(dest_dir)
-
-    # Set gpu
+    
     if checkpoint:
-        checkpoint = './BEST_checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
+        dest_dir = checkpoint
+        checkpoint = os.path.join(dest_dir, 'checkpoint_mimiccxr_1_cap_per_img_5_min_word_freq.pth.tar')  # path to checkpoint, None if none
     else:
+        dest_dir = os.path.join('/data/medg/misc/liuguanx/TieNet/models', datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S-%f'))
+        os.makedirs(dest_dir)
         checkpoint = None
     # Read word map
     word_map_file = os.path.join(data_folder, 'WORDMAP_' + data_name + '.json')
@@ -86,11 +85,11 @@ def main(checkpoint):
                                                   lr=jointlearning_lr)
 
     else:
-        checkpoint = torch.load(checkpoint,map_location={'cuda:0':'cuda:1'})
+        checkpoint = torch.load(checkpoint)
         print('checkpoint loaded')
         start_epoch = checkpoint['epoch'] + 1
         epochs_since_improvement = checkpoint['epochs_since_improvement']
-        best_bleu4 = checkpoint['bleu-4']
+        best_bleu4 = checkpoint['best_bleu']
         decoder = checkpoint['decoder']
         decoder_optimizer = checkpoint['decoder_optimizer']
         encoder = checkpoint['encoder']
@@ -106,8 +105,8 @@ def main(checkpoint):
     if torch.cuda.device_count() > 1:
         print('Using', torch.cuda.device_count(), 'GPUs')
         # decoder = nn.DataParallel(decoder)
-        encoder = nn.DataParallel(encoder)
-        jointlearner = nn.DataParallel(jointlearner)
+        encoder = nn.DataParallel(encoder, device_ids=[1])
+        jointlearner = nn.DataParallel(jointlearner, device_ids=[1])
     decoder = decoder.to(device)
     encoder = encoder.to(device)
     jointlearner = jointlearner.to(device)
@@ -171,7 +170,7 @@ def main(checkpoint):
 
         # Save checkpoint
         save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, jointlearner, encoder_optimizer,
-                        decoder_optimizer, jointlearner_optimizer, recent_bleu4, is_best, dest_dir)
+                        decoder_optimizer, jointlearner_optimizer, recent_bleu4, best_bleu4, is_best, dest_dir)
 
 
 def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, encoder_optimizer, decoder_optimizer, jointlearner_optimizer, epoch, dest_dir):

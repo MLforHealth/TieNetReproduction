@@ -233,7 +233,7 @@ def clip_gradient(optimizer, grad_clip):
 
 
 def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, jointlearner, encoder_optimizer, decoder_optimizer, jointlearner_optimizer,
-                    bleu4, is_best, dest_dir):
+                    bleu4, best_bleu4, is_best, dest_dir):
     """
     Saves model checkpoint.
 
@@ -250,6 +250,7 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
     state = {'epoch': epoch,
              'epochs_since_improvement': epochs_since_improvement,
              'bleu-4': bleu4,
+             'best_bleu': best_bleu4,
              'encoder': encoder,
              'decoder': decoder,
              'jointlearner': jointlearner,

@@ -171,8 +171,8 @@ def caption_image_beam_search(encoder, decoder, jointlearner, image_path, word_m
         labels = jointlearner(hiddens_tensor, alphas_tensor, origin_encoder_out)
         sigmoid = nn.Sigmoid()
         labels = sigmoid(labels)
-        # print(labels)
-        labels = torch.where(labels >= 0.01, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device))
+        print(labels)
+        labels = torch.where(labels >= 0.5, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device))
         classes = ['No Finding', 'Enlarged Cardiomediastinum',
         'Cardiomegaly', 'Lung Lesion', 'Airspace Opacity', 'Edema',
         'Consolidation', 'Pneumonia', 'Atelectasis', 'Pneumothorax',
