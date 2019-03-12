@@ -172,18 +172,9 @@ def caption_image_beam_search(encoder, decoder, jointlearner, image_path, word_m
         sigmoid = nn.Sigmoid()
         labels = sigmoid(labels)
         print(labels)
-        labels = torch.where(labels >= 0.5, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device))
-        classes = ['No Finding', 'Enlarged Cardiomediastinum',
-        'Cardiomegaly', 'Lung Lesion', 'Airspace Opacity', 'Edema',
-        'Consolidation', 'Pneumonia', 'Atelectasis', 'Pneumothorax',
-        'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']
+        labels = torch.where(labels >= 0.5, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device)) #(1, label_size)
         labelss = labels.squeeze(0).tolist()
-        output_classes = []
-        for i in range(len(classes)):
-            if labelss[i]:
-                output_classes.append(classes[i])
-        print(output_classes)
-    return seq, alphas
+    return seq, alphas, labelss
 
 
 def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
@@ -247,16 +238,22 @@ if __name__ == '__main__':
     rev_word_map = {v: k for k, v in word_map.items()}  # ix2word
 
 
-    test_data = pd.read_csv('/data/medg/misc/liuguanx/dataset/val.csv')
+    test_data = pd.read_csv('/data/medg/misc/liuguanx/TieNet/split/test-ap.tsv',sep='\t')
     rad = []
     text = []
+    classes = ['No Finding', 'Enlarged Cardiomediastinum',
+        'Cardiomegaly', 'Lung Lesion', 'Airspace Opacity', 'Edema',
+        'Consolidation', 'Pneumonia', 'Atelectasis', 'Pneumothorax',
+        'Pleural Effusion', 'Pleural Other', 'Fracture', 'Support Devices']
+    label_list = []
     for idx, row in tqdm(test_data.iterrows(),total=test_data.shape[0]):
         img_path = ('/data/medg/misc/interpretable-report-gen/cache/images/' + str(row['dicom_id']) + '.png')
         if os.path.isfile(img_path):
-            seq, alphas = caption_image_beam_search(encoder, decoder, jointlearner, img_path, word_map, 5)
+            seq, alphas, labels = caption_image_beam_search(encoder, decoder, jointlearner, img_path, word_map, 5)
             if seq != None and alphas != None:
                 alphas = torch.FloatTensor(alphas)
                 words = [rev_word_map[ind] for ind in seq]
+                label_list.append(labels)
             else:
                 words = []
             gen_text = ' '.join(words)
@@ -264,10 +261,13 @@ if __name__ == '__main__':
             text.append(gen_text)
         else:
             text.append('No image file.')
+            label_list.append([-1 for i in range(14)])
         rad.append(row['rad_id'])
-    torch.save(rad,'/data/medg/misc/liuguanx/gen-reports-20rad.pt')
-    torch.save(text,'/data/medg/misc/liuguanx/gen-reports-20text.pt')
-    result = {'rad_id':rad, 'text':text}
-    df = pd.DataFrame(data=result)
-    df.to_csv('/data/medg/misc/liuguanx/gen-reports-20.tsv',index=False,sep='\t')
+    torch.save(rad,'/data/medg/misc/liuguanx/TieNet/result/2019-03-08/gen-reports-rad.pt')
+    torch.save(text,'/data/medg/misc/liuguanx/TieNet/result/2019-03-08/gen-reports-text.pt')
+    label_list = np.array(label_list)
+    np.save('/data/medg/misc/liuguanx/TieNet/result/2019-03-08/gen-reports-label.npy', label_list)
+    # result = {'rad_id':rad, 'text':text}
+    # df = pd.DataFrame(data=result)
+    # df.to_csv('/data/medg/misc/liuguanx/gen-reports-20.tsv',index=False,sep='\t')
 
