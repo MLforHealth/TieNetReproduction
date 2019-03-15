@@ -44,7 +44,7 @@ print_freq = 10  # print training/validation stats every __ batches
 fine_tune_encoder = True  # fine-tune encoder?
 
 
-def main(checkpoint):
+def main(checkpoint, tienet):
     """
     Training and validation.
     """
@@ -76,13 +76,16 @@ def main(checkpoint):
         encoder.fine_tune(fine_tune_encoder)
         encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, encoder.parameters()),
                                              lr=encoder_lr) if fine_tune_encoder else None
-
-        jointlearner = JointLearning(num_global_att=num_global_att,
-                                    s=s,
-                                    decoder_dim=decoder_dim,
-                                    label_size=label_size)
-        jointlearner_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, jointlearner.parameters()),
-                                                  lr=jointlearning_lr)
+        if (tienet):
+            jointlearner = JointLearning(num_global_att=num_global_att,
+                                        s=s,
+                                        decoder_dim=decoder_dim,
+                                        label_size=label_size)
+            jointlearner_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, jointlearner.parameters()),
+                                                    lr=jointlearning_lr)
+        else:
+            jointlearner = None
+            jointlearner_optimizer = None
 
     else:
         checkpoint = torch.load(checkpoint)
@@ -106,10 +109,12 @@ def main(checkpoint):
         print('Using', torch.cuda.device_count(), 'GPUs')
         # decoder = nn.DataParallel(decoder)
         encoder = nn.DataParallel(encoder, device_ids=[1])
-        jointlearner = nn.DataParallel(jointlearner, device_ids=[1])
+        if tienet:
+            jointlearner = nn.DataParallel(jointlearner, device_ids=[1])
     decoder = decoder.to(device)
     encoder = encoder.to(device)
-    jointlearner = jointlearner.to(device)
+    if tienet:
+        jointlearner = jointlearner.to(device)
 
 
     # Loss function
@@ -127,7 +132,6 @@ def main(checkpoint):
         batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
 
     # Epochs
-    print(start_epoch, epochs)
     for epoch in range(start_epoch, epochs):
 
         # Decay learning rate if there is no improvement for 8 consecutive epochs, and terminate training after 20
@@ -135,7 +139,8 @@ def main(checkpoint):
             break
         if epochs_since_improvement > 0 and epochs_since_improvement % 8 == 0:
             adjust_learning_rate(decoder_optimizer, 0.8)
-            adjust_learning_rate(jointlearner_optimizer, 0.8)
+            if tienet:
+                adjust_learning_rate(jointlearner_optimizer, 0.8)
             if fine_tune_encoder:
                 adjust_learning_rate(encoder_optimizer, 0.8)
 
@@ -150,7 +155,8 @@ def main(checkpoint):
               decoder_optimizer=decoder_optimizer,
               jointlearner_optimizer=jointlearner_optimizer,
               epoch=epoch,
-              dest_dir=dest_dir)
+              dest_dir=dest_dir,
+              tienet=tienet)
 
         # One epoch's validation
         recent_bleu4 = validate(val_loader=val_loader,
@@ -158,7 +164,8 @@ def main(checkpoint):
                                 decoder=decoder,
                                 jointlearner=jointlearner,
                                 criterion_R=criterion_R,
-                                criterion_C=criterion_C)
+                                criterion_C=criterion_C,
+                                tienet=tienet)
 
         # Check if there was an improvement
         is_best = recent_bleu4 > best_bleu4
@@ -174,7 +181,7 @@ def main(checkpoint):
                         decoder_optimizer, jointlearner_optimizer, recent_bleu4, best_bleu4, is_best, dest_dir)
 
 
-def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, encoder_optimizer, decoder_optimizer, jointlearner_optimizer, epoch, dest_dir):
+def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, encoder_optimizer, decoder_optimizer, jointlearner_optimizer, epoch, dest_dir, tienet):
     """
     Performs one epoch's training.
 
@@ -189,7 +196,8 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
 
     decoder.train()  # train mode (dropout and batchnorm is used)
     encoder.train()
-    jointlearner.train()
+    if tienet:
+        jointlearner.train()
 
     batch_time = AverageMeter()  # forward prop. + back prop. time
     data_time = AverageMeter()  # data loading time
@@ -208,12 +216,14 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         imgs = imgs.to(device)
         caps = caps.to(device)
         caplens = caplens.to(device)
-        labels = labels.to(device)
+        if tienet:
+            labels = labels.to(device)
 
         # Forward prop.
         imgs = encoder(imgs)
         scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
-        _labels = jointlearner(hiddens, alphas, imgs)
+        if tienet:
+            _labels = jointlearner(hiddens, alphas, imgs)
     
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -229,16 +239,19 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         # Add doubly stochastic attention regularization
         loss_R += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
-        #TODO:load labels
-        loss_C = criterion_C(_labels, labels)
+        if tienet:
+            #TODO:load labels
+            loss_C = criterion_C(_labels, labels)
 
-        #TODO: adjust alpha
-        loss_alpha = 0.85
-        loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
-
+            #TODO: adjust alpha
+            loss_alpha = 0.85
+            loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
+        else:
+            loss = loss_R
         # Back prop.
         decoder_optimizer.zero_grad()
-        jointlearner_optimizer.zero_grad()
+        if tienet:
+            jointlearner_optimizer.zero_grad()
         if encoder_optimizer is not None:
             encoder_optimizer.zero_grad()
         loss.backward()
@@ -246,13 +259,15 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
         # Clip gradients
         if grad_clip is not None:
             clip_gradient(decoder_optimizer, grad_clip)
-            clip_gradient(jointlearner_optimizer, grad_clip)
+            if tienet:
+                clip_gradient(jointlearner_optimizer, grad_clip)
             if encoder_optimizer is not None:
                 clip_gradient(encoder_optimizer, grad_clip)
 
         # Update weights
         decoder_optimizer.step()
-        jointlearner_optimizer.step()
+        if tienet:
+            jointlearner_optimizer.step()
         if encoder_optimizer is not None:
             encoder_optimizer.step()
 
@@ -277,7 +292,7 @@ def train(train_loader, encoder, decoder, jointlearner, criterion_R, criterion_C
                                                                           top5=top5accs))
 
 
-def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_C):
+def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_C, tienet):
     """
     Performs one epoch's validation.
 
@@ -288,7 +303,8 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
     :return: BLEU-4 score
     """
     decoder.eval()  # eval mode (no dropout or batchnorm)
-    jointlearner.eval()
+    if tienet:
+        jointlearner.eval()
     if encoder is not None:
         encoder.eval()
 
@@ -308,12 +324,14 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
         imgs = imgs.to(device)
         caps = caps.to(device)
         caplens = caplens.to(device)
-        labels = labels.to(device)
+        if tienet:
+	        labels = labels.to(device)
         # Forward prop.
         if encoder is not None:
             imgs = encoder(imgs)
         scores, caps_sorted, decode_lengths, alphas, sort_ind, hiddens = decoder(imgs, caps, caplens)
-        _labels = jointlearner(hiddens, alphas, imgs)
+        if tienet:
+            _labels = jointlearner(hiddens, alphas, imgs)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -330,14 +348,16 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
         # Add doubly stochastic attention regularization
         loss_R += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
-        #TODO:load label
-        loss_C = criterion_C(_labels, labels)
+        if tienet:
+            #TODO:load label
+            loss_C = criterion_C(_labels, labels)
 
-        #TODO: adjust alpha
-        loss_alpha = 0.9
+            #TODO: adjust alpha
+            loss_alpha = 0.9
 
-        loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
-
+            loss = loss_alpha * loss_C + (1 - loss_alpha) * loss_R
+        else:
+            loss = loss_R
         # Keep track of metrics
         losses.update(loss.item(), sum(decode_lengths))
         top5 = accuracy(scores, targets, 5)
@@ -392,7 +412,8 @@ def validate(val_loader, encoder, decoder, jointlearner, criterion_R, criterion_
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Show, Attend, and Tell - Tutorial - Generate Caption')
     parser.add_argument('--checkpoint', '-c', help='checkpoint')
+    parser.add_argument('--tienet', '-t', help='if tienet')
     args = parser.parse_args()
 
-    main(args.checkpoint)
+    main(args.checkpoint, args.tienet)
 

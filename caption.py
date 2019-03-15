@@ -171,7 +171,6 @@ def caption_image_beam_search(encoder, decoder, jointlearner, image_path, word_m
         labels = jointlearner(hiddens_tensor, alphas_tensor, origin_encoder_out)
         sigmoid = nn.Sigmoid()
         labels = sigmoid(labels)
-        print(labels)
         labels = torch.where(labels >= 0.5, torch.tensor([1.0]).to(device), torch.tensor([0.0]).to(device)) #(1, label_size)
         labelss = labels.squeeze(0).tolist()
     return seq, alphas, labelss
@@ -258,6 +257,7 @@ if __name__ == '__main__':
                 words = []
             gen_text = ' '.join(words)
             print(gen_text)
+            print(labels)
             text.append(gen_text)
         else:
             text.append('No image file.')

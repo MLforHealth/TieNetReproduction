@@ -3,3 +3,5 @@
 *.tar
 nohup.out
 .vscode
+pymp*
+__pycache__
